@@ -1,0 +1,206 @@
+=====
+Tests
+=====
+
+    >>> from zope import interface, component
+    >>> from zope.interface.verify import verifyObject, verifyClass
+    >>> from zope.testbrowser.testing import Browser
+    >>> from zope.app.component.hooks import setSite
+    >>> from zope.app.folder.folder import Folder
+    >>> from zope.app.security.interfaces import IAuthentication
+    >>> from zope.security.management import newInteraction, endInteraction
+
+    >>> from zojax.subscription.interfaces import ISubscription
+    >>> from zojax.subscription.interfaces import ISubscriptions
+    >>> from zojax.subscription.interfaces import ISubscriptionEvent
+    >>> from zojax.subscription.interfaces import ISubscriptionAddedEvent
+    >>> from zojax.subscription.interfaces import ISubscriptionRemovedEvent
+    >>> from zojax.subscription.interfaces import ISubscriptionDescription
+    >>> from zojax.subscription.subscription import Subscription
+
+    >>> root = getRootFolder()
+    >>> setSite(root)
+    >>> sm = root.getSiteManager()
+
+    >>> folder = Folder()
+    >>> root['folder'] = folder
+    >>> folder1 = Folder()
+    >>> root['folder']['folder1'] = folder1
+    >>> folder2 = Folder()
+    >>> root['folder']['folder2'] = folder2
+
+    >>> configlet = sm.getUtility(ISubscriptions)
+    >>> verifyObject(ISubscriptions, configlet)
+    True
+
+    >>> class Participation:
+    ...     interaction = None
+    ...     def __init__(self, principal):
+    ...         self.principal = principal
+
+    >>> auth = sm.getUtility(IAuthentication)
+
+    >>> endInteraction()
+    >>> newInteraction(Participation(auth.getPrincipal('zope.mgr')))
+
+
+events handler
+
+    >>> events = []
+
+    >>> @component.adapter(ISubscriptionEvent)
+    ... def handleEvents(ev):
+    ...     events.append(ev)
+
+    >>> sm.registerHandler(handleEvents)
+
+add subscription
+----------------
+
+    >>> list(configlet.objectSubscriptions(folder1))
+    []
+
+    >>> subs = Subscription(principal='zope.mgr', type='comments')
+    >>> configlet.add(folder1, subs)
+
+    >>> verifyClass(ISubscription, Subscription)
+    True
+
+    >>> verifyObject(ISubscription, subs)
+    True
+
+    >>> ISubscriptionDescription.providedBy(subs.description)
+    True
+
+    >>> subs.description.title
+    u'Comments'
+
+
+we should get event
+
+    >>> event = events[-1]
+
+    >>> event
+    <zojax.subscription.configlet.SubscriptionAddedEvent ...>
+
+    >>> ISubscriptionAddedEvent.providedBy(event)
+    True
+
+    >>> event.object is folder1
+    True
+
+    >>> event.subscription is subs
+    True
+
+    >>> event.subscription.type
+    'comments'
+
+    >>> list(configlet.objectSubscriptions(folder1)) == [subs]
+    True
+
+    >>> configlet.updateObjectSubscriptions(folder1)
+
+    >>> list(configlet.principalSubscriptions('zope.mgr')) == [subs]
+    True
+
+
+add record to folder2
+
+    >>> list(configlet.objectSubscriptions(folder2))
+    []
+
+    >>> configlet.add(folder2, Subscription(type='comments'))
+
+if principal is not specified, tring to get principal from interaction
+
+    >>> events[-1].subscription.principal
+    'zope.mgr'
+
+    >>> list(configlet.search(object=folder2))
+    [<zojax.subscription.subscription.Subscription ...>]
+
+
+get records for context
+
+    >>> subscriptions = list(configlet.search(contexts=(folder,)))
+
+    >>> subscriptions
+    [<zojax.subscription.subscription.Subscription ...>, <zojax.subscription.subscription.Subscription ...>]
+
+    >>> subscriptions[0].object is folder1
+    True
+
+    >>> subscriptions[1].object is folder2
+    True
+
+    >>> list(configlet.principalSubscriptions('zope.mgr'))
+    [<zojax.subscription.subscription.Subscription ...>, <zojax.subscription.subscription.Subscription ...>]
+
+
+remove record
+-------------
+
+    >>> configlet.remove(subscriptions[0].id)
+
+    >>> event = events[-1]
+
+    >>> event
+    <zojax.subscription.configlet.SubscriptionRemovedEvent ...>
+
+    >>> ISubscriptionRemovedEvent.providedBy(event)
+    True
+
+    >>> event.object is folder1
+    True
+
+    >>> event.subscription.id == subscriptions[0].id
+    True
+
+    >>> list(configlet.objectSubscriptions(folder1))
+    []
+
+
+remove object with records
+--------------------------
+
+    >>> del root['folder']['folder2']
+
+    >>> event = events[-1]
+    >>> event.object is folder2
+    True
+    >>> event.subscription.id == subscriptions[1].id
+    True
+
+    >>> list(configlet.search())
+    []
+
+
+remove subscriptions
+--------------------
+
+    >>> configlet.add(folder1, Subscription(type='comments'))
+
+    >>> subs = configlet.objectSubscriptions(folder1)[0]
+
+    >>> len(configlet.objectSubscriptions(folder1))
+    1
+
+    >>> configlet.unsubscribePrincipal('zope.mgr', 23423423)
+    >>> len(configlet.objectSubscriptions(folder1))
+    1
+
+    >>> configlet.unsubscribePrincipal('zope.user', subs.id)
+    >>> len(configlet.objectSubscriptions(folder1))
+    1
+
+    >>> configlet.unsubscribePrincipal('zope.mgr', subs.id)
+    >>> len(configlet.objectSubscriptions(folder1))
+    0
+
+    >>> configlet.add(folder1, Subscription(type='comments'))
+    >>> configlet.removeSubscription(folder1, 'zope.mgr', 'comments')
+    >>> len(configlet.objectSubscriptions(folder1))
+    0
+
+    >>> setSite(None)
+    

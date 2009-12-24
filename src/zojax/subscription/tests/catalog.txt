@@ -1,0 +1,103 @@
+=============
+Catalog Tests
+=============
+
+    >>> from zope import interface, component
+    >>> from zope.interface.verify import verifyObject, verifyClass
+    >>> from zope.app.component.hooks import setSite
+    >>> from zope.app.folder.folder import Folder
+    >>> from zope.app.security.interfaces import IAuthentication
+    >>> from zope.security.management import newInteraction, endInteraction
+
+    >>> from zojax.subscription.catalog import SubscriptionsCatalog
+    >>> from zojax.subscription.subscription import Subscription
+    >>> from zojax.subscription.interfaces import ISubscriptions, ISubscriptionsCatalog
+
+    >>> root = getRootFolder()
+    >>> setSite(root)
+    >>> sm = root.getSiteManager()
+
+    >>> folder = Folder()
+    >>> root['folder'] = folder
+    >>> folder1 = Folder()
+    >>> root['folder']['folder1'] = folder1
+    >>> folder2 = Folder()
+    >>> root['folder']['folder2'] = folder2
+
+    >>> configlet = sm.getUtility(ISubscriptions)
+
+    >>> class Participation:
+    ...     interaction = None
+    ...     def __init__(self, principal):
+    ...         self.principal = principal
+
+    >>> auth = sm.getUtility(IAuthentication)
+
+    >>> endInteraction()
+    >>> newInteraction(Participation(auth.getPrincipal('zope.mgr')))
+
+    >>> configlet.add(folder1, Subscription(type='comments'))
+
+
+Catalog
+-------
+
+    >>> catalog = configlet.catalog
+
+    >>> verifyClass(ISubscriptionsCatalog, SubscriptionsCatalog)
+    True
+
+    >>> verifyObject(ISubscriptionsCatalog, catalog)
+    True
+
+    >>> isinstance(catalog, SubscriptionsCatalog)
+    True
+
+    >>> for index in catalog.getIndexes():
+    ...     print index.__name__, index
+    contexts <zc.catalog.catalogindex.SetIndex ...>
+    object <zc.catalog.catalogindex.ValueIndex ...>
+    principal <zc.catalog.catalogindex.ValueIndex ...>
+    type <zc.catalog.catalogindex.ValueIndex ...>
+    visibility <zc.catalog.catalogindex.ValueIndex ...>
+    
+    >>> catalog.updateIndex(catalog.getIndex('principal'))
+    >>> catalog.updateIndexes()
+
+index
+-----
+
+    >>> class GetName(object):
+    ...     def __init__(self, subs, default=None):
+    ...         self.value = subs.object.__name__
+
+    >>> from zc.catalog.catalogindex import ValueIndex
+    >>> from zojax.catalog.interfaces import ICatalogIndexFactory
+
+    >>> class NameIndex(object):
+    ...     component.adapts(ISubscriptionsCatalog)
+    ...     interface.implements(ICatalogIndexFactory)
+    ...     
+    ...     def __init__(self, catalog):
+    ...         pass
+    ...     
+    ...     def __call__(self):
+    ...         return ValueIndex('value', GetName)
+
+    >>> sm.registerAdapter(NameIndex, name='name')
+
+    >>> for index in catalog.getIndexes():
+    ...     print index.__name__, index
+    contexts <zc.catalog.catalogindex.SetIndex ...>
+    object <zc.catalog.catalogindex.ValueIndex ...>
+    principal <zc.catalog.catalogindex.ValueIndex ...>
+    type <zc.catalog.catalogindex.ValueIndex ...>
+    visibility <zc.catalog.catalogindex.ValueIndex ...>
+    name <zc.catalog.catalogindex.ValueIndex ...>
+
+    >>> catalog.clear()
+
+cleanup
+
+    >>> endInteraction()
+    >>> setSite(None)
