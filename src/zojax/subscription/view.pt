@@ -1,0 +1,33 @@
+<div class="z-topframe">
+  <h1 class="z-content-title"
+      tal:content="context/__title__"></h1>
+  <div class="z-page-description"
+       tal:content="context/__description__"></div>
+  
+  <tal:block content="structure view/batch/@@pagelet/batch.view" />
+
+  <table class="z-table" tal:condition="view/batch">
+    <thead>
+      <tr>
+	<th>Type</th>
+	<th>User</th>
+	<th>Object</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tal:block tal:repeat="record view/batch">
+	<tr tal:define="info python:view.getInfo(record)"
+	    tal:attributes="class python:repeat['record'].odd() and 'even' or 'odd'">
+	  <td tal:content="info/type"></td>
+	  <td tal:content="info/principal"></td>
+	  <td><a tal:content="info/object" tal:omit-tag="not:info/objectUrl"
+		 tal:attributes="href info/objectUrl"></a></td>
+	</tr>
+      </tal:block>
+    </tbody>
+  </table>
+
+  <div tal:condition="not:view/batch">
+    There is no any subscriptions.
+  </div>
+</div>

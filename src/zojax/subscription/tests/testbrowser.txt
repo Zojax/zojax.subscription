@@ -1,0 +1,187 @@
+====================================
+Subscriptions Configlet browser tests
+=====================================
+
+    >>> from zope.testbrowser.testing import Browser
+    >>> from zope.app.component.hooks import setSite
+    >>> from zope.app.intid.interfaces import IIntIds
+    >>> from zojax.subscription.interfaces import ISubscriptions
+    >>> from zojax.subscription.subscription import Subscription
+
+    >>> root = getRootFolder()
+    >>> setSite(root)
+    >>> sm = root.getSiteManager()
+
+    >>> admin = Browser()
+    >>> admin.addHeader("Authorization", "Basic mgr:mgrpw")
+    >>> admin.handleErrors = False
+
+    >>> admin.open('http://localhost/settings/')
+    >>> admin.getLink('Subscriptions').click()
+    >>> print admin.contents
+    <!DOCTYPE...
+    ...There is no any subscriptions...
+    </html>
+
+    >>> configlet = root.getSiteManager().getUtility(ISubscriptions)
+    >>> configlet.add(root, Subscription(principal='zope.mgr',type='comments'))
+    >>> configlet.add(root, Subscription(principal='zope.user',type='comments'))
+    >>> configlet.add(root, Subscription(principal='uknown',type='comments'))
+
+    >>> admin.reload()
+    >>> print admin.contents
+    <!DOCTYPE...
+    ...
+    <table class="z-table">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>User</th>
+          <th>Object</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="odd">
+          <td>comments</td>
+          <td>Manager</td>
+          <td><a href="http://localhost/"></a></td>
+        </tr>
+        <tr class="even">
+          <td>comments</td>
+          <td>User</td>
+          <td><a href="http://localhost/"></a></td>
+        </tr>
+        <tr class="odd">
+          <td>comments</td>
+          <td>Unknown</td>
+          <td><a href="http://localhost/"></a></td>
+        </tr>
+      </tbody>
+    </table>
+    ...
+    </html>
+
+    >>> from zojax.subscription.tests.tests import Content
+    >>> root['content'] = Content()
+
+    >>> configlet.add(
+    ...     root['content'],
+    ...     Subscription(principal='zope.mgr', type='comments'))
+
+    >>> root['content'].__name__  = None
+
+    >>> admin.reload()
+    >>> print admin.contents
+    <!DOCTYPE ...
+    ...
+    <tr class="even">
+       <td>comments</td>
+       <td>Manager</td>
+       <td></td>
+    </tr>
+    ...
+    </html>
+
+    >>> configlet.add(root, Subscription(principal='zope.mgr', type='comments'))
+    >>> configlet.add(root, Subscription(principal='zope.mgr', type='comments'))
+    >>> configlet.add(root, Subscription(principal='zope.mgr', type='comments'))
+    >>> configlet.add(root, Subscription(principal='zope.mgr', type='comments'))
+    >>> configlet.add(root, Subscription(principal='zope.mgr', type='comments'))
+    >>> configlet.add(root, Subscription(principal='zope.mgr', type='comments'))
+    >>> configlet.add(root, Subscription(principal='zope.mgr', type='comments'))
+    >>> configlet.add(root, Subscription(principal='zope.mgr', type='comments'))
+    >>> configlet.add(root, Subscription(principal='zope.mgr', type='comments'))
+    >>> configlet.add(root, Subscription(principal='zope.mgr', type='comments'))
+    >>> configlet.add(root, Subscription(principal='zope.mgr', type='comments'))
+    >>> configlet.add(root, Subscription(principal='zope.mgr', type='comments'))
+    >>> configlet.add(root, Subscription(principal='zope.mgr', type='comments'))
+    >>> configlet.add(root, Subscription(principal='zope.mgr', type='comments'))
+    >>> configlet.add(root, Subscription(principal='zope.mgr', type='comments'))
+    >>> configlet.add(root, Subscription(principal='zope.mgr', type='comments'))
+
+    >>> subs = Subscription(principal='zope.mgr', type='comments')
+    >>> configlet.add(root, subs)
+
+    >>> configlet._v_nextid = subs.id
+    >>> configlet.add(root, Subscription(principal='zope.mgr', type='comments'))
+
+    >>> subs = Subscription(principal='zope.mgr', type='comments')
+    >>> configlet.add(object(), subs)
+    >>> print subs.id
+    None
+
+paging
+
+    >>> admin.reload()
+    >>> print admin.contents
+    <!DOCTYPE...
+    ...
+    <div class="z-batch-navigation">
+      <a class="z-batch-next"
+         href="http://localhost/settings/system/subscriptions/index.html?bstart=20">
+        Next
+        2 &raquo;
+      </a>
+      [<span>1</span>]
+      <span><a href="http://localhost/settings/system/subscriptions/index.html?bstart=20">2</a></span>
+    </div>
+    ...
+    </html>
+
+Search
+
+    >>> catalog = configlet.catalog
+
+    >>> result = tuple([key for key, val in catalog.search(
+    ...     root, visibility=None).items()])
+    >>> len(result)
+    21
+
+    >>> ids = sm.getUtility(IIntIds)
+
+    >>> result == tuple([key for key, val in catalog.search(
+    ...     {'any_of': (ids.getId(root),)}, visibility=None).items()])
+    True
+
+    >>> len(catalog.search(object()))
+    0
+
+    >>> len(catalog.search())
+    0
+
+Index
+
+    >>> [idx.__name__ for idx in catalog.getIndexes()]
+    [u'contexts', u'object', u'principal', u'type', u'visibility']
+
+    >>> from zope import component, interface
+    >>> from zope.dublincore.interfaces import IDCTimes
+    >>> from zc.catalog.catalogindex import ValueIndex
+    >>> from zojax.catalog.interfaces import ICatalogIndexFactory
+    >>> from zojax.subscription.interfaces import ISubscriptionsCatalog
+
+    >>> class CreatedIndex(object):
+    ...     component.adapts(ISubscriptionsCatalog)
+    ...     interface.implements(ICatalogIndexFactory)
+    ...     
+    ...     def __init__(self, catalog):
+    ...         self.catalog = catalog
+    ...         
+    ...     def __call__(self):
+    ...         return ValueIndex('created', IDCTimes)
+
+    >>> component.getSiteManager().registerAdapter(CreatedIndex, name='created')
+
+    >>> catalog.getIndex('created')
+    <zc.catalog.catalogindex.ValueIndex ...>
+
+    >>> idxs = [idx.__name__ for idx in catalog.getIndexes()]
+    >>> idxs.sort()
+    >>> idxs
+    [u'contexts', u'created', u'object', u'principal', u'type', u'visibility']
+
+
+Cleanup
+
+    >>> setSite(None)
+

@@ -1,0 +1,51 @@
+<configure
+   xmlns="http://namespaces.zope.org/zope"
+   xmlns:i18n="http://namespaces.zope.org/i18n"
+   xmlns:zojax="http://namespaces.zope.org/zojax"
+   i18n_domain="zojax.subscription">
+
+  <!-- permissions -->
+  <permission
+     id="zojax.ManageSubscribers"
+     title="Manage object subscribers" />
+
+  <!-- subscriptions -->
+  <zojax:configlet
+     title="Subscriptions"
+     name="system.subscriptions"
+     schema=".interfaces.ISubscriptions"
+     description="Portal content subscriptions."
+     class=".configlet.SubscriptionsConfiglet"
+     permission="zojax.Configure">
+    <require
+       permission="zope.View" attributes="add" />
+  </zojax:configlet>
+
+  <subscriber handler=".configlet.objectRemovedHandler" />
+
+  <!-- subscription -->
+  <class class=".subscription.Subscription">
+    <require
+       permission="zope.View"
+       interface=".interfaces.ISubscription" />
+  </class>
+
+  <!-- catalog -->
+  <subscriber handler=".catalog.handleCatalogAdded" />
+
+  <adapter
+     name="visibility"
+     factory=".catalog.VisibilityIndex" />
+
+  <!-- configlet view -->
+  <zojax:pagelet
+     name="index.html"
+     for=".interfaces.ISubscriptions"
+     template="view.pt"
+     class=".view.SubscriptionsView"
+     permission="zojax.Configure" />
+
+  <!-- translations -->
+  <i18n:registerTranslations directory="locales"/>
+
+</configure>
