@@ -122,18 +122,24 @@ class SubscriptionsConfiglet(object):
             catalog.unindex_doc(id)
             del subscriptions[id]
 
-    def removeSubscription(self, object, principal, type):
+    def removeSubscription(self, object, principals, type):
         catalog = self.catalog
         subscriptions = self.subscriptions
-
+        
+        if isinstance(principals, basestring):
+            principals = (principals,)
+        
+        if isinstance(type, basestring):
+            type = (type,)
+        query = dict(type = {'any_of': type})
+        if principals:
+            query['principal'] = {'any_of': principals}
         for id in self.catalog.search(
-            object, principal = {'any_of': (principal,)},
-            type = {'any_of': (type,)}, visibility=None).uids:
-
+            object, visibility=None, **query).uids:
             event.notify(SubscriptionRemovedEvent(object, subscriptions[id]))
             catalog.unindex_doc(id)
             del subscriptions[id]
-
+            
 
 class SubscriptionEvent(object):
 
