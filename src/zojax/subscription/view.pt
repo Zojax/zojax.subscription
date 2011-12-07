@@ -9,9 +9,9 @@
   <table class="z-table" tal:condition="view/batch">
     <thead>
       <tr>
-	<th>Type</th>
-	<th>User</th>
-	<th>Object</th>
+	<th i18n:translate="">Type</th>
+	<th i18n:translate="">User</th>
+	<th i18n:translate="">Object</th>
       </tr>
     </thead>
     <tbody>
@@ -27,7 +27,7 @@
     </tbody>
   </table>
 
-  <div tal:condition="not:view/batch">
+  <div tal:condition="not:view/batch" i18n:translate="">
     There is no any subscriptions.
   </div>
 </div>
