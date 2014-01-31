@@ -73,6 +73,7 @@ setup(name = 'zojax.subscription',
                                   'zope.securitypolicy',
                                   'zope.app.zcmlfiles',
                                   'zojax.autoinclude',
+                                  'zojax.content.browser',
                                   ]),
       include_package_data = True,
       zip_safe = False
